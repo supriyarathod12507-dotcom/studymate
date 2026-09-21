@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Register — StudyMate</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div class="auth-page">
+    <div class="auth-card">
+      <div class="logo-row">
+        <div class="logo" style="width:40px;height:40px;background:linear-gradient(135deg,#B45309,#D97706);border-radius:10px;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700">S</div>
+        <span style="font-weight:700;font-size:1.25rem;color:#1C1917">StudyMate</span>
+      </div>
+      <h2>Create account</h2>
+      <p class="sub">Start organizing your academic life</p>
+      <form id="register-form">
+        <div class="form-group">
+          <label for="name">Full Name</label>
+          <input type="text" id="name" class="form-control" required autocomplete="name" placeholder="Your name" maxlength="80">
+        </div>
+        <div class="form-group">
+          <label for="email">Email</label>
+          <input type="email" id="email" class="form-control" required autocomplete="email" placeholder="you@college.edu">
+        </div>
+        <div class="form-group">
+          <label for="password">Password</label>
+          <input type="password" id="password" class="form-control" required autocomplete="new-password" placeholder="At least 6 characters" minlength="6">
+        </div>
+        <button type="submit" class="btn btn-primary btn-block" id="submit-btn">Create Account</button>
+      </form>
+      <p class="auth-footer">Already have an account? <a href="login.html">Login</a></p>
+      <p class="auth-footer"><a href="index.html">← Back to home</a></p>
+    </div>
+  </div>
+  <script src="js/config.js"></script>
+  <script src="js/api.js"></script>
+  <script>
+    if (API.getToken()) {
+      window.location.href = 'dashboard.html';
+    }
+    document.getElementById('register-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const btn = document.getElementById('submit-btn');
+      btn.disabled = true;
+      btn.textContent = 'Creating...';
+      try {
+        const res = await API.post('/auth/register', {
+          name: document.getElementById('name').value.trim(),
+          email: document.getElementById('email').value.trim(),
+          password: document.getElementById('password').value,
+        });
+        API.setAuth(res.token, res.user);
+        showToast('Account created!', 'success');
+        window.location.href = 'onboarding.html';
+      } catch (err) {
+        showToast(err.message, 'error');
+        btn.disabled = false;
+        btn.textContent = 'Create Account';
+      }
+    });
+  </script>
+</body>
+</html>

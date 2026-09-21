@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Analytics — StudyMate</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div class="app-shell" id="app-shell"></div>
+  <div id="page-content" style="display:none">
+    <div id="loading" class="loading-center"><div class="spinner"></div></div>
+    <div id="content" style="display:none">
+      <div class="card mb-2">
+        <h3 class="mb-2">Weekly Study Hours</h3>
+        <div class="bar-chart" id="weekly-chart"></div>
+      </div>
+      <div class="grid-2">
+        <div class="card">
+          <h3 class="mb-2">Subject-wise Time</h3>
+          <div id="subject-wise"></div>
+        </div>
+        <div class="card">
+          <h3 class="mb-2">Your Study Insights</h3>
+          <div id="insights"></div>
+        </div>
+      </div>
+      <div class="grid-3 mt-2" id="metrics"></div>
+    </div>
+  </div>
+  <script src="js/config.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/app.js"></script>
+  <script>
+    if (!requireAuth()) throw new Error('auth');
+    initShell('analytics.html');
+    async function load() {
+      try {
+        const res = await API.get('/dashboard/analytics');
+        const d = res.data;
+        document.getElementById('loading').style.display = 'none';
+        document.getElementById('content').style.display = 'block';
+        const max = Math.max(...(d.weeklyHours || []).map((x) => x.minutes), 1);
+        document.getElementById('weekly-chart').innerHTML = (d.weeklyHours || []).map((day) => {
+          const h = Math.max(4, (day.minutes / max) * 100);
+          const label = day.date.slice(5);
+          return `<div class="bar-col"><div class="bar" style="height:${h}%"></div><div class="bar-label">${label}</div></div>`;
+        }).join('');
+        document.getElementById('subject-wise').innerHTML = (d.subjectWise || []).length
+          ? d.subjectWise.map((s) => `<div class="list-item"><div class="meta"><div class="title">${escapeHtml(s.name)}</div><div class="desc">${s.hours}h (${s.minutes} min)</div></div></div>`).join('')
+          : '<p class="text-muted text-sm">Complete focus sessions to see subject-wise time.</p>';
+        document.getElementById('insights').innerHTML = (d.insights || []).map((i) => `<p class="text-sm mb-1">• ${escapeHtml(i)}</p>`).join('');
+        document.getElementById('metrics').innerHTML = `
+          <div class="stat-card"><div class="label">Monthly study</div><div class="value">${formatMinutes(d.monthlyMinutes)}</div></div>
+          <div class="stat-card"><div class="label">Study days (30d)</div><div class="value">${d.studyDays || 0}</div></div>
+          <div class="stat-card"><div class="label">Topics done</div><div class="value">${d.completedTopics || 0}/${d.totalTopics || 0}</div></div>
+        `;
+      } catch (err) {
+        document.getElementById('loading').innerHTML = '<p class="text-muted">' + escapeHtml(err.message) + '</p>';
+      }
+    }
+    load();
+  </script>
+</body>
+</html>

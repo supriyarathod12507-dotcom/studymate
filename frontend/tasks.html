@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>My Tasks — StudyMate</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div class="app-shell" id="app-shell"></div>
+  <div id="page-content" style="display:none">
+    <div class="flex-between mb-2 flex-wrap gap-1">
+      <input type="search" id="search" class="form-control" placeholder="Search tasks..." style="max-width:240px">
+      <button class="btn btn-primary" id="add-btn">+ Add Task</button>
+    </div>
+    <div class="filters" id="filters">
+      <button class="filter-chip active" data-status="">All</button>
+      <button class="filter-chip" data-status="pending">Pending</button>
+      <button class="filter-chip" data-status="in_progress">In Progress</button>
+      <button class="filter-chip" data-status="completed">Completed</button>
+    </div>
+    <div class="card" id="task-list"></div>
+  </div>
+  <div class="modal-backdrop" id="modal">
+    <div class="modal">
+      <div class="modal-header"><h3 id="modal-title">Add Task</h3><button class="modal-close" data-close>&times;</button></div>
+      <form id="form">
+        <input type="hidden" id="id">
+        <div class="form-group"><label>Title</label><input id="title" class="form-control" required></div>
+        <div class="form-group"><label>Description</label><textarea id="desc" class="form-control"></textarea></div>
+        <div class="form-group"><label>Subject</label><select id="subject" class="form-control"><option value="">None</option></select></div>
+        <div class="form-group"><label>Topic</label><input id="topic" class="form-control"></div>
+        <div class="grid-2">
+          <div class="form-group"><label>Priority</label>
+            <select id="priority" class="form-control"><option value="low">Low</option><option value="medium" selected>Medium</option><option value="high">High</option></select>
+          </div>
+          <div class="form-group"><label>Status</label>
+            <select id="status" class="form-control"><option value="pending">Pending</option><option value="in_progress">In Progress</option><option value="completed">Completed</option></select>
+          </div>
+        </div>
+        <div class="form-group"><label>Due date</label><input type="date" id="due" class="form-control"></div>
+        <button type="submit" class="btn btn-primary btn-block">Save</button>
+      </form>
+    </div>
+  </div>
+  <script src="js/config.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/app.js"></script>
+  <script>
+    if (!requireAuth()) throw new Error('auth');
+    initShell('tasks.html');
+    let statusFilter = '';
+    document.querySelector('[data-close]').onclick = () => document.getElementById('modal').classList.remove('show');
+    document.getElementById('modal').onclick = (e) => { if (e.target.id === 'modal') e.target.classList.remove('show'); };
+    document.getElementById('filters').onclick = (e) => {
+      if (e.target.dataset.status === undefined) return;
+      statusFilter = e.target.dataset.status;
+      document.querySelectorAll('.filter-chip').forEach((c) => c.classList.toggle('active', c.dataset.status === statusFilter));
+      load();
+    };
+    document.getElementById('add-btn').onclick = () => {
+      document.getElementById('id').value = '';
+      document.getElementById('form').reset();
+      document.getElementById('modal-title').textContent = 'Add Task';
+      document.getElementById('modal').classList.add('show');
+    };
+    document.getElementById('search').oninput = () => load();
+    document.getElementById('form').onsubmit = async (e) => {
+      e.preventDefault();
+      const id = document.getElementById('id').value;
+      const body = {
+        title: document.getElementById('title').value.trim(),
+        description: document.getElementById('desc').value,
+        subject: document.getElementById('subject').value || undefined,
+        topic: document.getElementById('topic').value,
+        priority: document.getElementById('priority').value,
+        status: document.getElementById('status').value,
+        dueDate: document.getElementById('due').value || undefined,
+      };
+      try {
+        if (id) await API.put('/tasks/' + id, body);
+        else await API.post('/tasks', body);
+        document.getElementById('modal').classList.remove('show');
+        showToast('Saved', 'success');
+        load();
+      } catch (err) { showToast(err.message, 'error'); }
+    };
+    async function load() {
+      try {
+        const q = new URLSearchParams();
+        if (statusFilter) q.set('status', statusFilter);
+        const search = document.getElementById('search').value.trim();
+        if (search) q.set('search', search);
+        const res = await API.get('/tasks?' + q.toString());
+        const tasks = res.data || [];
+        const list = document.getElementById('task-list');
+        if (!tasks.length) {
+          list.innerHTML = '<div class="empty-state"><div class="empty-icon">&#10003;</div><h3>No tasks yet</h3><p>Add your first task to stay organized.</p></div>';
+          return;
+        }
+        list.innerHTML = tasks.map((t) => `
+          <div class="list-item">
+            <div class="meta">
+              <div class="title">${escapeHtml(t.title)}</div>
+              <div class="desc">${t.subject?.name || ''} ${t.topic ? '· ' + escapeHtml(t.topic) : ''} · 
+                <span class="badge">${t.priority}</span> <span class="badge">${t.status.replace('_',' ')}</span>
+                ${t.dueDate ? ' · Due ' + formatDate(t.dueDate) : ''}
+              </div>
+            </div>
+            <button class="btn btn-sm btn-outline edit-btn">Edit</button>
+            <button class="btn btn-sm btn-outline del-btn" style="color:var(--danger)" data-id="${t._id}">×</button>
+          </div>`).join('');
+        const items = list.querySelectorAll('.list-item');
+        tasks.forEach((t, i) => {
+          items[i].querySelector('.edit-btn').onclick = () => {
+            document.getElementById('id').value = t._id;
+            document.getElementById('title').value = t.title;
+            document.getElementById('desc').value = t.description || '';
+            document.getElementById('subject').value = t.subject?._id || t.subject || '';
+            document.getElementById('topic').value = t.topic || '';
+            document.getElementById('priority').value = t.priority;
+            document.getElementById('status').value = t.status;
+            document.getElementById('due').value = t.dueDate ? t.dueDate.slice(0, 10) : '';
+            document.getElementById('modal-title').textContent = 'Edit Task';
+            document.getElementById('modal').classList.add('show');
+          };
+          items[i].querySelector('.del-btn').onclick = async () => {
+            if (!confirm('Delete task?')) return;
+            try { await API.del('/tasks/' + t._id); showToast('Deleted', 'success'); load(); }
+            catch (e) { showToast(e.message, 'error'); }
+          };
+        });
+      } catch (err) { showToast(err.message, 'error'); }
+    }
+    API.get('/subjects').then((r) => {
+      (r.data || []).forEach((s) => {
+        const o = document.createElement('option');
+        o.value = s._id; o.textContent = s.name;
+        document.getElementById('subject').appendChild(o);
+      });
+    });
+    load();
+  </script>
+</body>
+</html>

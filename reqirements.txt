@@ -1,0 +1,37 @@
+StudyMate - Technology Stack
+
+Frontend:
+- HTML5
+- CSS3
+- JavaScript (ES6+)
+
+Backend:
+- Node.js
+- Express.js
+
+Database:
+- MongoDB Atlas
+- Mongoose
+
+Authentication:
+- JSON Web Tokens (JWT)
+- bcryptjs
+
+AI Integration:
+- Groq API (OpenAI-compatible)
+
+Security & Middleware:
+- cors
+- dotenv
+- helmet
+- express-rate-limit
+- express-validator
+
+Development:
+- morgan
+- nodemon (optional, local)
+
+Deployment:
+- Render (or any Node.js hosting)
+- MongoDB Atlas
+- GitHub

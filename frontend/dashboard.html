@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard — StudyMate</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div class="app-shell" id="app-shell"></div>
+  <div id="page-content" style="display:none">
+    <div id="dash-loading" class="loading-center"><div class="spinner"></div></div>
+    <div id="dash-content" style="display:none">
+      <p class="text-muted mb-2" id="welcome"></p>
+      <div class="grid-3 mb-2" id="stat-cards"></div>
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-header"><h3>Today's Focus</h3></div>
+          <div id="todays-focus"></div>
+        </div>
+        <div class="card">
+          <div class="card-header"><h3>Semester Progress</h3></div>
+          <div id="semester-prog"></div>
+        </div>
+      </div>
+      <div class="grid-2 mt-2">
+        <div class="card">
+          <div class="card-header">
+            <h3>Today's Tasks</h3>
+            <a href="tasks.html" class="text-sm">View all</a>
+          </div>
+          <div id="today-tasks"></div>
+        </div>
+        <div class="card">
+          <div class="card-header">
+            <h3>Today's Study Plan</h3>
+            <a href="planner.html" class="text-sm">View all</a>
+          </div>
+          <div id="today-plans"></div>
+        </div>
+      </div>
+      <div class="grid-2 mt-2">
+        <div class="card">
+          <div class="card-header">
+            <h3>Upcoming Exams</h3>
+            <a href="exams.html" class="text-sm">View all</a>
+          </div>
+          <div id="upcoming-exams"></div>
+        </div>
+        <div class="card">
+          <div class="card-header">
+            <h3>Revision Needed</h3>
+            <a href="revision.html" class="text-sm">View all</a>
+          </div>
+          <div id="revision-needed"></div>
+        </div>
+      </div>
+      <div class="grid-2 mt-2">
+        <div class="card">
+          <div class="card-header"><h3>Academic Goals</h3><a href="goals.html" class="text-sm">View all</a></div>
+          <div id="goals-list"></div>
+        </div>
+        <div class="card">
+          <div class="card-header"><h3>StudyMate AI</h3></div>
+          <p class="text-muted text-sm mb-2">Stuck on a concept? Ask your AI study companion.</p>
+          <a href="ai.html" class="btn btn-primary">Ask StudyMate AI</a>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script src="js/config.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/app.js"></script>
+  <script>
+    if (!requireAuth()) throw new Error('auth');
+    const user = API.getUser();
+    if (user && !user.onboardingCompleted) window.location.href = 'onboarding.html';
+    initShell('dashboard.html');
+
+    async function load() {
+      try {
+        const res = await API.get('/dashboard');
+        const d = res.data;
+        document.getElementById('dash-loading').style.display = 'none';
+        document.getElementById('dash-content').style.display = 'block';
+        document.getElementById('welcome').textContent = `Hi ${user?.name || 'there'} — here's your study overview.`;
+
+        document.getElementById('stat-cards').innerHTML = `
+          <div class="stat-card"><div class="label">Study Streak</div><div class="value">${d.studyStreak?.current || 0} days</div></div>
+          <div class="stat-card"><div class="label">Today's Study</div><div class="value">${formatMinutes(d.studyTime?.today)}</div></div>
+          <div class="stat-card"><div class="label">This Week</div><div class="value">${formatMinutes(d.studyTime?.week)}</div></div>
+        `;
+
+        const focus = d.todaysFocus;
+        document.getElementById('todays-focus').innerHTML = focus
+          ? `<p class="title">${escapeHtml(focus.title)}</p>
+             <p class="text-sm text-muted">${focus.subject?.name || ''} ${focus.duration ? '· ' + focus.duration + ' min' : ''}</p>`
+          : `<div class="empty-state" style="padding:1rem"><p>No focus set for today. <a href="planner.html">Add a study plan</a> or <a href="tasks.html">a task</a>.</p></div>`;
+
+        document.getElementById('semester-prog').innerHTML = `
+          <div class="flex-between mb-1"><span class="text-sm">${d.completedTopics || 0} / ${d.totalTopics || 0} topics</span><strong>${d.semesterProgress || 0}%</strong></div>
+          <div class="progress"><div class="progress-bar" style="width:${d.semesterProgress || 0}%"></div></div>
+          ${!d.subjectsCount ? '<p class="text-sm text-muted mt-1"><a href="semester.html">Add subjects</a> to start tracking.</p>' : ''}
+        `;
+
+        const tasks = d.todayTasks || [];
+        document.getElementById('today-tasks').innerHTML = tasks.length
+          ? tasks.slice(0, 5).map((t) => `
+            <div class="list-item">
+              <div class="meta">
+                <div class="title">${escapeHtml(t.title)}</div>
+                <div class="desc">${t.subject?.name || ''} · <span class="badge badge-${t.status === 'completed' ? 'success' : t.priority === 'high' ? 'danger' : 'muted'}">${t.status}</span></div>
+              </div>
+            </div>`).join('')
+          : '<div class="empty-state" style="padding:1rem"><p>No tasks yet. <a href="tasks.html">Add your first task</a>.</p></div>';
+
+        const plans = d.todayPlans || [];
+        document.getElementById('today-plans').innerHTML = plans.length
+          ? plans.map((p) => `
+            <div class="list-item">
+              <div class="meta">
+                <div class="title">${escapeHtml(p.topic || p.unit || 'Study session')}</div>
+                <div class="desc">${p.subject?.name || ''} · ${p.startTime} · ${p.duration} min · ${p.status}</div>
+              </div>
+            </div>`).join('')
+          : '<div class="empty-state" style="padding:1rem"><p>No plans for today. <a href="planner.html">Create a study plan</a>.</p></div>';
+
+        const exams = d.upcomingExams || [];
+        document.getElementById('upcoming-exams').innerHTML = exams.length
+          ? exams.map((e) => {
+              const days = e.daysRemaining != null ? e.daysRemaining : Math.ceil((new Date(e.examDate) - new Date()) / 86400000);
+              return `<div class="list-item"><div class="meta"><div class="title">${escapeHtml(e.name)}</div><div class="desc">${e.subject?.name || ''} · ${days >= 0 ? 'In ' + days + ' days' : 'Past'} · ${formatDate(e.examDate)}</div></div></div>`;
+            }).join('')
+          : '<div class="empty-state" style="padding:1rem"><p>No upcoming exams. <a href="exams.html">Add an exam</a>.</p></div>';
+
+        const rev = d.revisionNeeded || [];
+        document.getElementById('revision-needed').innerHTML = rev.length
+          ? rev.map((r) => `<div class="list-item"><div class="meta"><div class="title">${escapeHtml(r.topicName)}</div><div class="desc">${escapeHtml(r.subjectName)}</div></div></div>`).join('')
+          : '<p class="text-muted text-sm">No topics marked for revision right now.</p>';
+
+        const goals = d.goals || [];
+        document.getElementById('goals-list').innerHTML = goals.length
+          ? goals.map((g) => `
+            <div class="list-item"><div class="meta">
+              <div class="title">${escapeHtml(g.title)}</div>
+              <div class="progress mt-1"><div class="progress-bar" style="width:${g.progress || 0}%"></div></div>
+              <div class="desc mt-1">${g.progress || 0}%</div>
+            </div></div>`).join('')
+          : '<div class="empty-state" style="padding:1rem"><p><a href="goals.html">Add your first study goal</a>.</p></div>';
+      } catch (err) {
+        document.getElementById('dash-loading').innerHTML = `<p class="text-muted">${escapeHtml(err.message)}</p>`;
+      }
+    }
+    load();
+  </script>
+</body>
+</html>

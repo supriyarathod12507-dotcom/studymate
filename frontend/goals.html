@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Academic Goals — StudyMate</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div class="app-shell" id="app-shell"></div>
+  <div id="page-content" style="display:none">
+    <div class="flex-between mb-2"><span></span><button class="btn btn-primary" id="add-btn">+ Add Goal</button></div>
+    <div id="list" class="grid-2"></div>
+  </div>
+  <div class="modal-backdrop" id="modal">
+    <div class="modal">
+      <div class="modal-header"><h3>Goal</h3><button class="modal-close" data-close>&times;</button></div>
+      <form id="form">
+        <input type="hidden" id="id">
+        <div class="form-group"><label>Goal</label><input id="title" class="form-control" required placeholder="e.g. Finish DBMS Unit 2"></div>
+        <div class="form-group"><label>Description</label><textarea id="desc" class="form-control"></textarea></div>
+        <div class="form-group"><label>Subject</label><select id="subject" class="form-control"><option value="">None</option></select></div>
+        <div class="form-group"><label>Target date</label><input type="date" id="target" class="form-control"></div>
+        <div class="form-group"><label>Progress %</label><input type="number" id="progress" class="form-control" min="0" max="100" value="0"></div>
+        <button type="submit" class="btn btn-primary btn-block">Save</button>
+      </form>
+    </div>
+  </div>
+  <script src="js/config.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/app.js"></script>
+  <script>
+    if (!requireAuth()) throw new Error('auth');
+    initShell('goals.html');
+    document.querySelector('[data-close]').onclick = () => document.getElementById('modal').classList.remove('show');
+    document.getElementById('add-btn').onclick = () => {
+      document.getElementById('form').reset();
+      document.getElementById('id').value = '';
+      document.getElementById('progress').value = 0;
+      document.getElementById('modal').classList.add('show');
+    };
+    document.getElementById('form').onsubmit = async (e) => {
+      e.preventDefault();
+      const id = document.getElementById('id').value;
+      const body = {
+        title: document.getElementById('title').value.trim(),
+        description: document.getElementById('desc').value,
+        subject: document.getElementById('subject').value || undefined,
+        targetDate: document.getElementById('target').value || undefined,
+        progress: Number(document.getElementById('progress').value) || 0,
+      };
+      try {
+        if (id) await API.put('/goals/' + id, body);
+        else await API.post('/goals', body);
+        document.getElementById('modal').classList.remove('show');
+        showToast('Saved', 'success');
+        load();
+      } catch (err) { showToast(err.message, 'error'); }
+    };
+    async function load() {
+      try {
+        const res = await API.get('/goals');
+        const goals = res.data || [];
+        const list = document.getElementById('list');
+        if (!goals.length) {
+          list.innerHTML = '<div class="empty-state" style="grid-column:1/-1"><div class="empty-icon">🎯</div><h3>No goals yet</h3><p>Add your first study goal.</p></div>';
+          return;
+        }
+        list.innerHTML = goals.map((g) => `
+          <div class="card">
+            <div class="flex-between mb-1"><h3>${escapeHtml(g.title)}</h3><span class="badge">${g.status}</span></div>
+            <p class="text-sm text-muted mb-1">${g.subject?.name || ''} ${g.targetDate ? '· Target ' + formatDate(g.targetDate) : ''}</p>
+            ${g.description ? '<p class="text-sm mb-1">' + escapeHtml(g.description) + '</p>' : ''}
+            <div class="flex-between text-sm mb-1"><span>Progress</span><span>${g.progress || 0}%</span></div>
+            <div class="progress mb-2"><div class="progress-bar" style="width:${g.progress || 0}%"></div></div>
+            <div class="flex gap-1">
+              <button class="btn btn-sm btn-secondary edit-btn">Edit</button>
+              <button class="btn btn-sm btn-outline del-btn" data-id="${g._id}" style="color:var(--danger)">Delete</button>
+            </div>
+          </div>`).join('');
+        goals.forEach((g, i) => {
+          list.children[i].querySelector('.edit-btn').onclick = () => {
+            document.getElementById('id').value = g._id;
+            document.getElementById('title').value = g.title;
+            document.getElementById('desc').value = g.description || '';
+            document.getElementById('subject').value = g.subject?._id || '';
+            document.getElementById('target').value = g.targetDate ? g.targetDate.slice(0, 10) : '';
+            document.getElementById('progress').value = g.progress || 0;
+            document.getElementById('modal').classList.add('show');
+          };
+          list.children[i].querySelector('.del-btn').onclick = async () => {
+            if (!confirm('Delete?')) return;
+            try { await API.del('/goals/' + g._id); load(); } catch (e) { showToast(e.message, 'error'); }
+          };
+        });
+      } catch (err) { showToast(err.message, 'error'); }
+    }
+    API.get('/subjects').then((r) => {
+      (r.data || []).forEach((s) => {
+        const o = document.createElement('option');
+        o.value = s._id; o.textContent = s.name;
+        document.getElementById('subject').appendChild(o);
+      });
+    });
+    load();
+  </script>
+</body>
+</html>

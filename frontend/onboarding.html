@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Setup — StudyMate</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div class="auth-page">
+    <div class="auth-card" style="max-width:480px">
+      <div class="logo-row">
+        <div class="logo" style="width:40px;height:40px;background:linear-gradient(135deg,#B45309,#D97706);border-radius:10px;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700">S</div>
+        <span style="font-weight:700;font-size:1.25rem;color:#1C1917">StudyMate</span>
+      </div>
+      <div class="onboard-steps" id="steps">
+        <div class="onboard-step active" data-step="1"></div>
+        <div class="onboard-step" data-step="2"></div>
+        <div class="onboard-step" data-step="3"></div>
+      </div>
+      <div id="step-1">
+        <h2>About you</h2>
+        <p class="sub">Tell us a bit about your college</p>
+        <div class="form-group">
+          <label for="name">Name</label>
+          <input type="text" id="name" class="form-control" required>
+        </div>
+        <div class="form-group">
+          <label for="college">College</label>
+          <input type="text" id="college" class="form-control" placeholder="e.g. D.Y. Patil College of Engineering">
+        </div>
+        <div class="form-group">
+          <label for="branch">Branch</label>
+          <input type="text" id="branch" class="form-control" placeholder="e.g. Computer Science & Engineering">
+        </div>
+        <button class="btn btn-primary btn-block" id="next-1">Continue</button>
+      </div>
+      <div id="step-2" style="display:none">
+        <h2>Your semester</h2>
+        <p class="sub">Which year and semester are you in?</p>
+        <div class="form-group">
+          <label for="year">Academic Year</label>
+          <input type="text" id="year" class="form-control" placeholder="e.g. Second Year">
+        </div>
+        <div class="form-group">
+          <label for="semester">Semester</label>
+          <input type="text" id="semester" class="form-control" placeholder="e.g. Semester 3">
+        </div>
+        <button class="btn btn-primary btn-block" id="next-2">Continue</button>
+        <button class="btn btn-outline btn-block mt-1" id="back-2">Back</button>
+      </div>
+      <div id="step-3" style="display:none">
+        <h2>Add subjects</h2>
+        <p class="sub">Add the subjects you are studying this semester. You can add more later.</p>
+        <div id="subjects-list"></div>
+        <div class="form-group mt-2">
+          <label for="subject-input">Subject name</label>
+          <div class="flex gap-1">
+            <input type="text" id="subject-input" class="form-control" placeholder="e.g. Computer Networks">
+            <button type="button" class="btn btn-secondary" id="add-subject">Add</button>
+          </div>
+        </div>
+        <button class="btn btn-primary btn-block" id="finish">Finish setup</button>
+        <button class="btn btn-outline btn-block mt-1" id="back-3">Back</button>
+      </div>
+    </div>
+  </div>
+  <script src="js/config.js"></script>
+  <script src="js/api.js"></script>
+  <script>
+    if (!requireAuth()) throw new Error('auth');
+    const user = API.getUser();
+    if (user?.onboardingCompleted) window.location.href = 'dashboard.html';
+
+    document.getElementById('name').value = user?.name || '';
+    let subjects = [];
+
+    function showStep(n) {
+      [1, 2, 3].forEach((i) => {
+        document.getElementById(`step-${i}`).style.display = i === n ? 'block' : 'none';
+        const dot = document.querySelector(`.onboard-step[data-step="${i}"]`);
+        dot.classList.toggle('active', i === n);
+        dot.classList.toggle('done', i < n);
+      });
+    }
+
+    function renderSubjects() {
+      const el = document.getElementById('subjects-list');
+      if (!subjects.length) {
+        el.innerHTML = '<p class="text-muted text-sm">No subjects added yet.</p>';
+        return;
+      }
+      el.innerHTML = subjects.map((s, i) => `
+        <div class="flex-between list-item" style="padding:0.5rem 0">
+          <span>${escapeHtml(s)}</span>
+          <button type="button" class="btn btn-sm btn-outline" data-i="${i}">Remove</button>
+        </div>
+      `).join('');
+      el.querySelectorAll('button[data-i]').forEach((btn) => {
+        btn.onclick = () => {
+          subjects.splice(Number(btn.dataset.i), 1);
+          renderSubjects();
+        };
+      });
+    }
+
+    document.getElementById('next-1').onclick = () => {
+      if (!document.getElementById('name').value.trim()) {
+        showToast('Name is required', 'error');
+        return;
+      }
+      showStep(2);
+    };
+    document.getElementById('next-2').onclick = () => showStep(3);
+    document.getElementById('back-2').onclick = () => showStep(1);
+    document.getElementById('back-3').onclick = () => showStep(2);
+
+    document.getElementById('add-subject').onclick = () => {
+      const v = document.getElementById('subject-input').value.trim();
+      if (!v) return;
+      if (subjects.includes(v)) {
+        showToast('Already added', 'error');
+        return;
+      }
+      subjects.push(v);
+      document.getElementById('subject-input').value = '';
+      renderSubjects();
+    };
+
+    document.getElementById('finish').onclick = async () => {
+      const btn = document.getElementById('finish');
+      btn.disabled = true;
+      btn.textContent = 'Saving...';
+      try {
+        const profile = await API.put('/auth/profile', {
+          name: document.getElementById('name').value.trim(),
+          college: document.getElementById('college').value.trim(),
+          branch: document.getElementById('branch').value.trim(),
+          academicYear: document.getElementById('year').value.trim(),
+          semester: document.getElementById('semester').value.trim(),
+          onboardingCompleted: true,
+        });
+        API.updateUser(profile.user);
+        for (const name of subjects) {
+          await API.post('/subjects', { name });
+        }
+        showToast('Setup complete!', 'success');
+        window.location.href = 'dashboard.html';
+      } catch (err) {
+        showToast(err.message, 'error');
+        btn.disabled = false;
+        btn.textContent = 'Finish setup';
+      }
+    };
+    renderSubjects();
+  </script>
+</body>
+</html>

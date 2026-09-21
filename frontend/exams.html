@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Exam Tracker — StudyMate</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div class="app-shell" id="app-shell"></div>
+  <div id="page-content" style="display:none">
+    <div class="flex-between mb-2"><span></span><button class="btn btn-primary" id="add-btn">+ Add Exam</button></div>
+    <div id="list" class="grid-2"></div>
+  </div>
+  <div class="modal-backdrop" id="modal">
+    <div class="modal">
+      <div class="modal-header"><h3>Exam</h3><button class="modal-close" data-close>&times;</button></div>
+      <form id="form">
+        <input type="hidden" id="id">
+        <div class="form-group"><label>Exam name</label><input id="name" class="form-control" required placeholder="e.g. Mid-Semester"></div>
+        <div class="form-group"><label>Subject</label><select id="subject" class="form-control"><option value="">None</option></select></div>
+        <div class="form-group"><label>Exam date</label><input type="date" id="examDate" class="form-control" required></div>
+        <div class="form-group"><label>Syllabus</label><textarea id="syllabus" class="form-control" rows="2"></textarea></div>
+        <div class="form-group"><label>Important topics (comma separated)</label><input id="topics" class="form-control" placeholder="Topic1, Topic2"></div>
+        <button type="submit" class="btn btn-primary btn-block">Save</button>
+      </form>
+    </div>
+  </div>
+  <script src="js/config.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/app.js"></script>
+  <script>
+    if (!requireAuth()) throw new Error('auth');
+    initShell('exams.html');
+    document.querySelector('[data-close]').onclick = () => document.getElementById('modal').classList.remove('show');
+    document.getElementById('add-btn').onclick = () => {
+      document.getElementById('form').reset();
+      document.getElementById('id').value = '';
+      document.getElementById('modal').classList.add('show');
+    };
+    document.getElementById('form').onsubmit = async (e) => {
+      e.preventDefault();
+      const id = document.getElementById('id').value;
+      const topics = document.getElementById('topics').value.split(',').map((t) => t.trim()).filter(Boolean);
+      const body = {
+        name: document.getElementById('name').value.trim(),
+        subject: document.getElementById('subject').value || undefined,
+        examDate: document.getElementById('examDate').value,
+        syllabus: document.getElementById('syllabus').value,
+        importantTopics: topics,
+      };
+      try {
+        if (id) await API.put('/exams/' + id, body);
+        else await API.post('/exams', body);
+        document.getElementById('modal').classList.remove('show');
+        showToast('Saved', 'success');
+        load();
+      } catch (err) { showToast(err.message, 'error'); }
+    };
+    async function load() {
+      try {
+        const res = await API.get('/exams');
+        const exams = res.data || [];
+        const list = document.getElementById('list');
+        if (!exams.length) {
+          list.innerHTML = '<div class="empty-state" style="grid-column:1/-1"><div class="empty-icon">📋</div><h3>No exams yet</h3><p>Add an exam to track preparation.</p></div>';
+          return;
+        }
+        list.innerHTML = exams.map((e) => {
+          const days = e.daysRemaining != null ? e.daysRemaining : Math.ceil((new Date(e.examDate) - new Date()) / 86400000);
+          const pct = e.preparationPercent || 0;
+          return `<div class="card">
+            <div class="flex-between mb-1"><h3>${escapeHtml(e.name)}</h3>
+              <span class="badge ${days < 7 ? 'badge-danger' : 'badge-muted'}">${days >= 0 ? 'In ' + days + ' days' : 'Past'}</span></div>
+            <p class="text-sm text-muted mb-1">${e.subject?.name || ''} · ${formatDate(e.examDate)}</p>
+            <div class="flex-between text-sm mb-1"><span>Preparation</span><span>${pct}%</span></div>
+            <div class="progress mb-2"><div class="progress-bar" style="width:${pct}%"></div></div>
+            ${e.syllabus ? '<p class="text-sm mb-1">' + escapeHtml(e.syllabus.slice(0, 100)) + '</p>' : ''}
+            <button class="btn btn-sm btn-outline del-btn" data-id="${e._id}" style="color:var(--danger)">Delete</button>
+          </div>`;
+        }).join('');
+        list.querySelectorAll('.del-btn').forEach((btn) => {
+          btn.onclick = async () => {
+            if (!confirm('Delete exam?')) return;
+            try { await API.del('/exams/' + btn.dataset.id); load(); }
+            catch (e) { showToast(e.message, 'error'); }
+          };
+        });
+      } catch (err) { showToast(err.message, 'error'); }
+    }
+    API.get('/subjects').then((r) => {
+      (r.data || []).forEach((s) => {
+        const o = document.createElement('option');
+        o.value = s._id; o.textContent = s.name;
+        document.getElementById('subject').appendChild(o);
+      });
+    });
+    load();
+  </script>
+</body>
+</html>

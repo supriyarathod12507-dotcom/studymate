@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Focus Mode — StudyMate</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div class="app-shell" id="app-shell"></div>
+  <div id="page-content" style="display:none">
+    <div class="card text-center" style="max-width:420px;margin:0 auto">
+      <h2 class="mb-1">Focus Mode</h2>
+      <p class="text-muted text-sm mb-2">Stay focused. Track real study time.</p>
+      <div class="filters justify-center" style="justify-content:center">
+        <button class="filter-chip active" data-mins="25">Pomodoro 25</button>
+        <button class="filter-chip" data-mins="5">Break 5</button>
+        <button class="filter-chip" data-mins="45">45 min</button>
+        <button class="filter-chip" data-mins="custom">Custom</button>
+      </div>
+      <div id="custom-row" style="display:none" class="form-group mt-1">
+        <input type="number" id="custom-mins" class="form-control" min="1" max="180" value="30" placeholder="Minutes">
+      </div>
+      <div class="timer-display" id="timer">25:00</div>
+      <div class="timer-controls">
+        <button class="btn btn-primary" id="start-btn">Start</button>
+        <button class="btn btn-outline" id="pause-btn" disabled>Pause</button>
+        <button class="btn btn-outline" id="reset-btn">Reset</button>
+      </div>
+    </div>
+    <div class="modal-backdrop" id="save-modal">
+      <div class="modal">
+        <div class="modal-header"><h3>What did you study?</h3><button class="modal-close" data-close>&times;</button></div>
+        <div class="form-group"><label>Subject</label><select id="subject" class="form-control"><option value="">Optional</option></select></div>
+        <div class="form-group"><label>Topic</label><input id="topic" class="form-control" placeholder="What did you study?"></div>
+        <div class="form-group"><label>Notes</label><textarea id="notes" class="form-control" rows="2"></textarea></div>
+        <button class="btn btn-primary btn-block" id="save-session">Save Session</button>
+        <button class="btn btn-outline btn-block mt-1" id="skip-save">Skip</button>
+      </div>
+    </div>
+  </div>
+  <script src="js/config.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/app.js"></script>
+  <script>
+    if (!requireAuth()) throw new Error('auth');
+    initShell('focus.html');
+    let totalSeconds = 25 * 60;
+    let remaining = totalSeconds;
+    let interval = null;
+    let running = false;
+    let sessionType = 'pomodoro';
+
+    function display() {
+      const m = Math.floor(remaining / 60);
+      const s = remaining % 60;
+      document.getElementById('timer').textContent = `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+    }
+
+    document.querySelector('.filters').onclick = (e) => {
+      if (!e.target.dataset.mins) return;
+      document.querySelectorAll('.filter-chip').forEach((c) => c.classList.remove('active'));
+      e.target.classList.add('active');
+      if (e.target.dataset.mins === 'custom') {
+        document.getElementById('custom-row').style.display = 'block';
+        totalSeconds = (Number(document.getElementById('custom-mins').value) || 30) * 60;
+        sessionType = 'custom';
+      } else {
+        document.getElementById('custom-row').style.display = 'none';
+        totalSeconds = Number(e.target.dataset.mins) * 60;
+        sessionType = e.target.dataset.mins === '5' ? 'break' : 'pomodoro';
+      }
+      remaining = totalSeconds;
+      stop();
+      display();
+    };
+
+    document.getElementById('custom-mins')?.addEventListener('change', () => {
+      totalSeconds = (Number(document.getElementById('custom-mins').value) || 30) * 60;
+      remaining = totalSeconds;
+      display();
+    });
+
+    function stop() {
+      clearInterval(interval);
+      interval = null;
+      running = false;
+      document.getElementById('start-btn').disabled = false;
+      document.getElementById('pause-btn').disabled = true;
+      document.getElementById('pause-btn').textContent = 'Pause';
+    }
+
+    document.getElementById('start-btn').onclick = () => {
+      if (running) return;
+      running = true;
+      document.getElementById('start-btn').disabled = true;
+      document.getElementById('pause-btn').disabled = false;
+      interval = setInterval(() => {
+        remaining--;
+        display();
+        if (remaining <= 0) {
+          stop();
+          remaining = 0;
+          display();
+          if (sessionType !== 'break') {
+            document.getElementById('save-modal').classList.add('show');
+          } else {
+            showToast('Break over!', 'success');
+          }
+        }
+      }, 1000);
+    };
+
+    document.getElementById('pause-btn').onclick = () => {
+      if (!interval) {
+        // resume
+        document.getElementById('start-btn').click();
+        return;
+      }
+      clearInterval(interval);
+      interval = null;
+      running = false;
+      document.getElementById('pause-btn').textContent = 'Resume';
+      document.getElementById('start-btn').disabled = false;
+    };
+
+    document.getElementById('reset-btn').onclick = () => {
+      stop();
+      remaining = totalSeconds;
+      display();
+    };
+
+    document.querySelector('[data-close]').onclick = () => document.getElementById('save-modal').classList.remove('show');
+    document.getElementById('skip-save').onclick = () => {
+      document.getElementById('save-modal').classList.remove('show');
+      remaining = totalSeconds;
+      display();
+    };
+
+    document.getElementById('save-session').onclick = async () => {
+      const duration = Math.round((totalSeconds - remaining) / 60) || Math.round(totalSeconds / 60);
+      try {
+        await API.post('/sessions', {
+          subject: document.getElementById('subject').value || undefined,
+          topic: document.getElementById('topic').value,
+          duration: Math.max(1, duration),
+          type: sessionType,
+          notes: document.getElementById('notes').value,
+        });
+        showToast('Session saved!', 'success');
+        document.getElementById('save-modal').classList.remove('show');
+        remaining = totalSeconds;
+        display();
+      } catch (err) { showToast(err.message, 'error'); }
+    };
+
+    API.get('/subjects').then((r) => {
+      (r.data || []).forEach((s) => {
+        const o = document.createElement('option');
+        o.value = s._id; o.textContent = s.name;
+        document.getElementById('subject').appendChild(o);
+      });
+    });
+    display();
+  </script>
+</body>
+</html>

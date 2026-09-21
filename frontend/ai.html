@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>StudyMate AI — StudyMate</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div class="app-shell" id="app-shell"></div>
+  <div id="page-content" style="display:none">
+    <div class="grid-2" style="align-items:start">
+      <div class="card" style="margin-bottom:1rem">
+        <div class="flex-between mb-2">
+          <h3>Conversations</h3>
+          <button class="btn btn-sm btn-primary" id="new-chat">+ New</button>
+        </div>
+        <div id="conv-list"></div>
+        <hr class="mt-2 mb-2" style="border:none;border-top:1px solid var(--border)">
+        <h3 class="mb-1">Solve My Doubt</h3>
+        <div class="form-group"><label>Subject</label><input id="doubt-subject" class="form-control" placeholder="e.g. Computer Networks"></div>
+        <div class="form-group"><label>Topic</label><input id="doubt-topic" class="form-control" placeholder="e.g. Subnetting"></div>
+        <div class="form-group"><label>Question</label><textarea id="doubt-q" class="form-control" rows="3"></textarea></div>
+        <button class="btn btn-secondary btn-block" id="solve-btn">Solve Doubt</button>
+        <div id="doubt-result" class="mt-2" style="display:none;white-space:pre-wrap;font-size:0.9rem" class="card"></div>
+      </div>
+      <div class="card chat-layout">
+        <div class="mode-chips" id="modes">
+          <button class="mode-chip active" data-mode="simple">Simple</button>
+          <button class="mode-chip" data-mode="step_by_step">Step-by-Step</button>
+          <button class="mode-chip" data-mode="exam">Exam Answer</button>
+          <button class="mode-chip" data-mode="deep">Deep Learning</button>
+          <button class="mode-chip" data-mode="hint">Hint</button>
+          <button class="mode-chip" data-mode="revision">Revision</button>
+          <button class="mode-chip" data-mode="coding">Coding Help</button>
+        </div>
+        <div class="chat-messages" id="messages">
+          <div class="empty-state"><p>Ask StudyMate AI anything about your studies.</p></div>
+        </div>
+        <div class="chat-input-row">
+          <input type="text" id="chat-input" class="form-control" placeholder="Ask a question..." autocomplete="off">
+          <button class="btn btn-primary" id="send-btn">Send</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script src="js/config.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/app.js"></script>
+  <script>
+    if (!requireAuth()) throw new Error('auth');
+    initShell('ai.html');
+    let mode = 'simple';
+    let conversationId = null;
+
+    document.getElementById('modes').onclick = (e) => {
+      if (!e.target.dataset.mode) return;
+      mode = e.target.dataset.mode;
+      document.querySelectorAll('.mode-chip').forEach((c) => c.classList.toggle('active', c.dataset.mode === mode));
+    };
+
+    document.getElementById('new-chat').onclick = () => {
+      conversationId = null;
+      document.getElementById('messages').innerHTML = '<div class="empty-state"><p>New conversation. Ask anything.</p></div>';
+    };
+
+    async function loadConvs() {
+      try {
+        const res = await API.get('/ai/conversations');
+        const list = document.getElementById('conv-list');
+        const convs = res.data || [];
+        if (!convs.length) {
+          list.innerHTML = '<p class="text-muted text-sm">No conversations yet.</p>';
+          return;
+        }
+        list.innerHTML = convs.slice(0, 15).map((c) => `
+          <div class="list-item" style="cursor:pointer;padding:0.5rem 0" data-id="${c._id}">
+            <div class="meta"><div class="title text-sm">${escapeHtml(c.title)}</div>
+            <div class="desc">${formatDate(c.updatedAt)}</div></div>
+            <button class="btn btn-sm btn-outline del-conv" data-id="${c._id}" style="color:var(--danger)">×</button>
+          </div>`).join('');
+        list.querySelectorAll('[data-id]').forEach((el) => {
+          if (el.classList.contains('del-conv')) {
+            el.onclick = async (e) => {
+              e.stopPropagation();
+              try { await API.del('/ai/conversations/' + el.dataset.id); loadConvs(); if (conversationId === el.dataset.id) document.getElementById('new-chat').click(); }
+              catch (err) { showToast(err.message, 'error'); }
+            };
+          } else {
+            el.onclick = async () => {
+              try {
+                const r = await API.get('/ai/conversations/' + el.dataset.id);
+                conversationId = r.data._id;
+                mode = r.data.mode || 'simple';
+                document.querySelectorAll('.mode-chip').forEach((c) => c.classList.toggle('active', c.dataset.mode === mode));
+                renderMessages(r.data.messages || []);
+              } catch (err) { showToast(err.message, 'error'); }
+            };
+          }
+        });
+      } catch (err) { console.error(err); }
+    }
+
+    function renderMessages(msgs) {
+      const el = document.getElementById('messages');
+      if (!msgs.length) {
+        el.innerHTML = '<div class="empty-state"><p>No messages yet.</p></div>';
+        return;
+      }
+      el.innerHTML = msgs.filter((m) => m.role !== 'system').map((m) =>
+        `<div class="chat-bubble ${m.role}">${escapeHtml(m.content)}</div>`
+      ).join('');
+      el.scrollTop = el.scrollHeight;
+    }
+
+    async function send() {
+      const input = document.getElementById('chat-input');
+      const msg = input.value.trim();
+      if (!msg) return;
+      input.value = '';
+      const el = document.getElementById('messages');
+      if (el.querySelector('.empty-state')) el.innerHTML = '';
+      el.innerHTML += `<div class="chat-bubble user">${escapeHtml(msg)}</div>`;
+      el.innerHTML += `<div class="chat-bubble assistant" id="thinking">Thinking...</div>`;
+      el.scrollTop = el.scrollHeight;
+      document.getElementById('send-btn').disabled = true;
+      try {
+        const res = await API.post('/ai/chat', { conversationId, message: msg, mode });
+        conversationId = res.data.conversationId;
+        document.getElementById('thinking')?.remove();
+        el.innerHTML += `<div class="chat-bubble assistant">${escapeHtml(res.data.reply)}</div>`;
+        el.scrollTop = el.scrollHeight;
+        loadConvs();
+      } catch (err) {
+        document.getElementById('thinking')?.remove();
+        el.innerHTML += `<div class="chat-bubble assistant">${escapeHtml(err.message)}</div>`;
+        showToast(err.message, 'error');
+      }
+      document.getElementById('send-btn').disabled = false;
+    }
+
+    document.getElementById('send-btn').onclick = send;
+    document.getElementById('chat-input').onkeydown = (e) => { if (e.key === 'Enter') send(); };
+
+    document.getElementById('solve-btn').onclick = async () => {
+      const q = document.getElementById('doubt-q').value.trim();
+      if (!q) return showToast('Enter a question', 'error');
+      const btn = document.getElementById('solve-btn');
+      btn.disabled = true;
+      btn.textContent = 'Solving...';
+      try {
+        const res = await API.post('/ai/doubt', {
+          subject: document.getElementById('doubt-subject').value,
+          topic: document.getElementById('doubt-topic').value,
+          question: q,
+        });
+        const el = document.getElementById('doubt-result');
+        el.style.display = 'block';
+        el.className = 'card mt-2';
+        el.style.whiteSpace = 'pre-wrap';
+        el.style.fontSize = '0.9rem';
+        el.textContent = res.data.reply;
+      } catch (err) { showToast(err.message, 'error'); }
+      btn.disabled = false;
+      btn.textContent = 'Solve Doubt';
+    };
+
+    loadConvs();
+  </script>
+</body>
+</html>

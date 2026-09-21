@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="StudyMate — AI-Powered Personal Study Management & Learning Companion for college students.">
+  <title>StudyMate — Your AI-Powered Study Companion</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div class="landing-hero">
+    <nav class="landing-nav">
+      <a href="index.html" class="brand">
+        <span class="mark">S</span>
+        StudyMate
+      </a>
+      <div style="display:flex;gap:0.5rem">
+        <a href="login.html" class="btn btn-outline btn-sm">Login</a>
+        <a href="register.html" class="btn btn-primary btn-sm" style="background:var(--clay)">Get Started</a>
+      </div>
+    </nav>
+    <div class="hero-content">
+      <span class="eyebrow">For college students</span>
+      <h1>StudyMate</h1>
+      <p class="tagline">Your AI-Powered Study Companion</p>
+      <p class="subtitle">Plan your studies, understand difficult topics, organize your academic life and track your progress — all in one place.</p>
+      <div class="hero-btns">
+        <a href="register.html" class="btn btn-primary">Get Started</a>
+        <a href="login.html" class="btn btn-outline">Login</a>
+      </div>
+    </div>
+  </div>
+
+  <section class="section">
+    <h2 class="section-title">What is StudyMate?</h2>
+    <p class="section-sub">A personal digital study companion built for college students. Plan, learn, organize, revise, focus, and track progress around your actual subjects and semester.</p>
+  </section>
+
+  <section class="section" style="padding-top:0">
+    <h2 class="section-title">Built around your semester</h2>
+    <p class="section-sub">Not a quiz site. Manage subjects, topics, notes, plans — and get AI help when you are stuck.</p>
+    <div class="features-grid">
+      <div class="feature-card">
+        <div class="icon">📚</div>
+        <h3>Semester Management</h3>
+        <p>Add your college, branch, year, semester, subjects, units and topics. Track completion honestly.</p>
+      </div>
+      <div class="feature-card">
+        <div class="icon">🤖</div>
+        <h3>AI Learning Assistant</h3>
+        <p>Ask questions, get simple explanations, step-by-step solutions, exam-style answers, and coding help.</p>
+      </div>
+      <div class="feature-card">
+        <div class="icon">📅</div>
+        <h3>Smart Study Planning</h3>
+        <p>Schedule study sessions by subject and topic. View today, this week, or upcoming plans.</p>
+      </div>
+      <div class="feature-card">
+        <div class="icon">📝</div>
+        <h3>Notes & AI Actions</h3>
+        <p>Write notes linked to subjects. Summarize, simplify, or generate revision points with AI.</p>
+      </div>
+      <div class="feature-card">
+        <div class="icon">🔄</div>
+        <h3>Smart Revision</h3>
+        <p>Mark topics that need revision and see what to revise based on your progress and exams.</p>
+      </div>
+      <div class="feature-card">
+        <div class="icon">⏱️</div>
+        <h3>Focus Mode</h3>
+        <p>Pomodoro and custom timers. Log what you studied and build a healthy study streak.</p>
+      </div>
+      <div class="feature-card">
+        <div class="icon">🎯</div>
+        <h3>Goals & Tasks</h3>
+        <p>Set academic goals, manage tasks with priorities, and stay on top of deadlines.</p>
+      </div>
+      <div class="feature-card">
+        <div class="icon">📊</div>
+        <h3>Progress & Analytics</h3>
+        <p>Real charts from your data — study hours, topic completion, tasks, and study insights.</p>
+      </div>
+    </div>
+  </section>
+
+  <div class="cta-section">
+    <h2>Ready to organize your studies?</h2>
+    <p>Create a free account and set up your semester in a few minutes.</p>
+    <a href="register.html" class="btn">Get Started — It's Free</a>
+  </div>
+
+  <footer class="footer">
+    <p>StudyMate — AI-Powered Personal Study Management & Learning Companion</p>
+  </footer>
+
+  <script src="js/config.js"></script>
+  <script src="js/api.js"></script>
+  <script>
+    if (API.getToken()) {
+      const u = API.getUser();
+      if (u && !u.onboardingCompleted) window.location.href = 'onboarding.html';
+      else window.location.href = 'dashboard.html';
+    }
+  </script>
+</body>
+</html>

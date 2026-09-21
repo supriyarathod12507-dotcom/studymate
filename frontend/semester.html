@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>My Semester — StudyMate</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div class="app-shell" id="app-shell"></div>
+  <div id="page-content" style="display:none">
+    <div class="flex-between mb-2 flex-wrap gap-1">
+      <div>
+        <p class="text-muted text-sm" id="semester-info"></p>
+      </div>
+      <button class="btn btn-primary" id="add-subject-btn">+ Add Subject</button>
+    </div>
+    <div id="subjects-grid" class="grid-2"></div>
+    <div id="empty-subjects" class="empty-state" style="display:none">
+      <div class="empty-icon">📚</div>
+      <h3>No subjects yet</h3>
+      <p>Add your subjects to start tracking your semester progress.</p>
+      <button class="btn btn-primary" id="empty-add">Add Subject</button>
+    </div>
+  </div>
+
+  <!-- Modal Add/Edit Subject -->
+  <div class="modal-backdrop" id="subject-modal">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 id="modal-title">Add Subject</h3>
+        <button class="modal-close" data-close>&times;</button>
+      </div>
+      <form id="subject-form">
+        <input type="hidden" id="subject-id">
+        <div class="form-group">
+          <label for="sub-name">Subject name</label>
+          <input type="text" id="sub-name" class="form-control" required placeholder="e.g. Database Management Systems">
+        </div>
+        <div class="form-group">
+          <label for="sub-code">Code (optional)</label>
+          <input type="text" id="sub-code" class="form-control" placeholder="e.g. CS301">
+        </div>
+        <button type="submit" class="btn btn-primary btn-block">Save</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal Topics -->
+  <div class="modal-backdrop" id="topics-modal">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 id="topics-title">Topics</h3>
+        <button class="modal-close" data-close>&times;</button>
+      </div>
+      <div id="topics-list"></div>
+      <form id="topic-form" class="mt-2">
+        <div class="form-group">
+          <label for="topic-name">Add topic</label>
+          <input type="text" id="topic-name" class="form-control" placeholder="Topic name" required>
+        </div>
+        <div class="form-group">
+          <label for="topic-unit">Unit (optional)</label>
+          <input type="text" id="topic-unit" class="form-control" placeholder="e.g. Unit 1">
+        </div>
+        <button type="submit" class="btn btn-primary btn-block">Add Topic</button>
+      </form>
+    </div>
+  </div>
+
+  <script src="js/config.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/app.js"></script>
+  <script>
+    if (!requireAuth()) throw new Error('auth');
+    initShell('semester.html');
+    const user = API.getUser();
+    document.getElementById('semester-info').textContent =
+      [user?.college, user?.branch, user?.academicYear, user?.semester].filter(Boolean).join(' · ') || 'Set your profile details in Profile';
+
+    let subjects = [];
+    let currentSubjectId = null;
+
+    function openModal(id) {
+      document.getElementById(id).classList.add('show');
+    }
+    function closeModals() {
+      document.querySelectorAll('.modal-backdrop').forEach((m) => m.classList.remove('show'));
+    }
+    document.querySelectorAll('[data-close]').forEach((b) => b.onclick = closeModals);
+    document.querySelectorAll('.modal-backdrop').forEach((m) => {
+      m.addEventListener('click', (e) => { if (e.target === m) closeModals(); });
+    });
+
+    function render() {
+      const grid = document.getElementById('subjects-grid');
+      const empty = document.getElementById('empty-subjects');
+      if (!subjects.length) {
+        grid.innerHTML = '';
+        empty.style.display = 'block';
+        return;
+      }
+      empty.style.display = 'none';
+      grid.innerHTML = subjects.map((s) => {
+        const total = (s.topics || []).length;
+        const done = (s.topics || []).filter((t) => t.status === 'completed').length;
+        const pct = total ? Math.round((done / total) * 100) : 0;
+        return `
+          <div class="subject-card">
+            <div class="flex-between">
+              <div class="name">${escapeHtml(s.name)}</div>
+              <strong>${pct}%</strong>
+            </div>
+            <div class="stats">${done} completed · ${total - done} pending · ${total} topics</div>
+            <div class="progress mb-2"><div class="progress-bar" style="width:${pct}%"></div></div>
+            <div class="flex gap-1 flex-wrap">
+              <button class="btn btn-sm btn-secondary" data-topics="${s._id}" data-name="${escapeHtml(s.name)}">Topics</button>
+              <button class="btn btn-sm btn-outline" data-edit="${s._id}">Edit</button>
+              <button class="btn btn-sm btn-outline" data-del="${s._id}" style="color:var(--danger)">Delete</button>
+            </div>
+          </div>`;
+      }).join('');
+
+      grid.querySelectorAll('[data-topics]').forEach((btn) => {
+        btn.onclick = () => openTopics(btn.dataset.topics, btn.dataset.name);
+      });
+      grid.querySelectorAll('[data-edit]').forEach((btn) => {
+        btn.onclick = () => {
+          const s = subjects.find((x) => x._id === btn.dataset.edit);
+          document.getElementById('subject-id').value = s._id;
+          document.getElementById('sub-name').value = s.name;
+          document.getElementById('sub-code').value = s.code || '';
+          document.getElementById('modal-title').textContent = 'Edit Subject';
+          openModal('subject-modal');
+        };
+      });
+      grid.querySelectorAll('[data-del]').forEach((btn) => {
+        btn.onclick = async () => {
+          if (!confirm('Delete this subject and all its topics?')) return;
+          try {
+            await API.del(`/subjects/${btn.dataset.del}`);
+            showToast('Subject deleted', 'success');
+            load();
+          } catch (e) { showToast(e.message, 'error'); }
+        };
+      });
+    }
+
+    async function openTopics(id, name) {
+      currentSubjectId = id;
+      document.getElementById('topics-title').textContent = name + ' — Topics';
+      const s = subjects.find((x) => x._id === id);
+      const list = document.getElementById('topics-list');
+      if (!s?.topics?.length) {
+        list.innerHTML = '<p class="text-muted text-sm">No topics yet. Add one below.</p>';
+      } else {
+        list.innerHTML = s.topics.map((t) => `
+          <div class="list-item">
+            <div class="meta">
+              <div class="title">${escapeHtml(t.name)}</div>
+              <div class="desc">${t.unit ? escapeHtml(t.unit) + ' · ' : ''}<span class="badge">${t.status.replace('_', ' ')}</span></div>
+            </div>
+            <select class="form-control" style="width:auto;min-height:36px;font-size:0.8rem" data-topic="${t._id}">
+              <option value="not_started" ${t.status==='not_started'?'selected':''}>Not started</option>
+              <option value="learning" ${t.status==='learning'?'selected':''}>Learning</option>
+              <option value="completed" ${t.status==='completed'?'selected':''}>Completed</option>
+              <option value="needs_revision" ${t.status==='needs_revision'?'selected':''}>Needs revision</option>
+            </select>
+            <button class="btn btn-sm btn-outline" data-tdel="${t._id}" style="color:var(--danger)">×</button>
+          </div>`).join('');
+        list.querySelectorAll('select[data-topic]').forEach((sel) => {
+          sel.onchange = async () => {
+            try {
+              await API.put(`/subjects/${id}/topics/${sel.dataset.topic}`, { status: sel.value });
+              showToast('Updated', 'success');
+              load();
+            } catch (e) { showToast(e.message, 'error'); }
+          };
+        });
+        list.querySelectorAll('[data-tdel]').forEach((btn) => {
+          btn.onclick = async () => {
+            try {
+              await API.del(`/subjects/${id}/topics/${btn.dataset.tdel}`);
+              showToast('Topic deleted', 'success');
+              load().then(() => openTopics(id, name));
+            } catch (e) { showToast(e.message, 'error'); }
+          };
+        });
+      }
+      openModal('topics-modal');
+    }
+
+    document.getElementById('add-subject-btn').onclick = document.getElementById('empty-add').onclick = () => {
+      document.getElementById('subject-id').value = '';
+      document.getElementById('sub-name').value = '';
+      document.getElementById('sub-code').value = '';
+      document.getElementById('modal-title').textContent = 'Add Subject';
+      openModal('subject-modal');
+    };
+
+    document.getElementById('subject-form').onsubmit = async (e) => {
+      e.preventDefault();
+      const id = document.getElementById('subject-id').value;
+      const body = {
+        name: document.getElementById('sub-name').value.trim(),
+        code: document.getElementById('sub-code').value.trim(),
+      };
+      try {
+        if (id) await API.put(`/subjects/${id}`, body);
+        else await API.post('/subjects', body);
+        closeModals();
+        showToast('Saved', 'success');
+        load();
+      } catch (err) { showToast(err.message, 'error'); }
+    };
+
+    document.getElementById('topic-form').onsubmit = async (e) => {
+      e.preventDefault();
+      if (!currentSubjectId) return;
+      try {
+        await API.post(`/subjects/${currentSubjectId}/topics`, {
+          name: document.getElementById('topic-name').value.trim(),
+          unit: document.getElementById('topic-unit').value.trim(),
+        });
+        document.getElementById('topic-name').value = '';
+        document.getElementById('topic-unit').value = '';
+        showToast('Topic added', 'success');
+        await load();
+        const s = subjects.find((x) => x._id === currentSubjectId);
+        openTopics(currentSubjectId, s?.name || '');
+      } catch (err) { showToast(err.message, 'error'); }
+    };
+
+    async function load() {
+      try {
+        const res = await API.get('/subjects');
+        subjects = res.data || [];
+        render();
+      } catch (err) {
+        showToast(err.message, 'error');
+      }
+    }
+    load();
+  </script>
+</body>
+</html>
