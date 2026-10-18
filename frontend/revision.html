@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Revision Center — StudyMate</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div class="app-shell" id="app-shell"></div>
+  <div id="page-content" style="display:none">
+    <p class="text-muted mb-2">Topics marked for revision or completed topics that may need review.</p>
+    <div id="list" class="card"></div>
+  </div>
+  <script src="js/config.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/app.js"></script>
+  <script>
+    if (!requireAuth()) throw new Error('auth');
+    initShell('revision.html');
+    async function load() {
+      try {
+        const res = await API.get('/subjects');
+        const subjects = res.data || [];
+        const items = [];
+        subjects.forEach((s) => {
+          (s.topics || []).forEach((t) => {
+            if (t.status === 'needs_revision' || t.status === 'completed') {
+              items.push({ subject: s, topic: t });
+            }
+          });
+        });
+        const list = document.getElementById('list');
+        if (!items.length) {
+          list.innerHTML = '<div class="empty-state"><div class="empty-icon">🔄</div><h3>Nothing to revise</h3><p>Mark topics as "Needs revision" from My Semester, or complete topics to review them later.</p><a href="semester.html" class="btn btn-primary mt-1">Go to My Semester</a></div>';
+          return;
+        }
+        list.innerHTML = items.map(({ subject, topic }) => `
+          <div class="list-item">
+            <div class="meta">
+              <div class="title">${escapeHtml(topic.name)}</div>
+              <div class="desc">${escapeHtml(subject.name)} ${topic.unit ? '· ' + escapeHtml(topic.unit) : ''} · <span class="badge">${topic.status.replace('_', ' ')}</span></div>
+            </div>
+            <select class="form-control" style="width:auto;min-height:36px;font-size:0.8rem" data-sid="${subject._id}" data-tid="${topic._id}">
+              <option value="needs_revision" ${topic.status==='needs_revision'?'selected':''}>Needs revision</option>
+              <option value="completed" ${topic.status==='completed'?'selected':''}>Completed</option>
+              <option value="learning">Learning</option>
+            </select>
+          </div>`).join('');
+        list.querySelectorAll('select').forEach((sel) => {
+          sel.onchange = async () => {
+            try {
+              await API.put(`/subjects/${sel.dataset.sid}/topics/${sel.dataset.tid}`, { status: sel.value });
+              showToast('Updated', 'success');
+              load();
+            } catch (e) { showToast(e.message, 'error'); }
+          };
+        });
+      } catch (err) { showToast(err.message, 'error'); }
+    }
+    load();
+  </script>
+</body>
+</html>

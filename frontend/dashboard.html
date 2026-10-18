@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard — StudyMate</title>
+  <link rel="stylesheet" href="css/style.css">
+  <script src="https://unpkg.com/lucide@0.460.0"></script>
+</head>
+<body>
+  <div class="app-shell" id="app-shell"></div>
+  <div id="page-content" style="display:none">
+    <div id="dash-loading" class="loading-center"><div class="spinner"></div></div>
+    <div id="dash-content" class="dash-pro" style="display:none">
+      <div id="exam-reminders"></div>
+
+      <div class="dash-hero">
+        <div>
+          <h2 class="dash-hello" id="welcome">Hi there! 👋</h2>
+          <p class="dash-sub">Keep going! Every small step brings you closer to your dreams.</p>
+        </div>
+        <div class="dash-hero-art text-sm">
+          <span>Better Students Build<br>Brighter Futures 💚</span>
+        </div>
+      </div>
+
+      <div class="dash-stats" id="stat-cards"></div>
+
+      <div class="dash-mid">
+        <div class="card card-motivation hover-lift">
+          <div class="motivation-badge"><i data-lucide="sparkles"></i> Daily Motivation</div>
+          <p class="quote-text" id="quote-text">“Small steps every day lead to big results.”</p>
+          <p class="quote-author" id="quote-author">— StudyMate</p>
+          <button type="button" class="btn btn-quote" id="new-quote-btn">
+            <i data-lucide="refresh-cw"></i> New Quote
+          </button>
+        </div>
+
+        <div class="card hover-lift">
+          <div class="card-header">
+            <h3><i data-lucide="bar-chart-3" class="inline-icon"></i> Weekly Study Activity</h3>
+            <span class="chip-week" id="week-total-label">This Week</span>
+          </div>
+          <p class="text-sm text-muted mb-1">Your study time this week</p>
+          <div class="weekly-chart weekly-chart-pro" id="weekly-chart"></div>
+        </div>
+
+        <div class="card card-streak-gauge hover-lift">
+          <div class="card-header">
+            <h3><i data-lucide="flame" class="inline-icon"></i> Study Streak</h3>
+          </div>
+          <div id="streak-panel"></div>
+        </div>
+      </div>
+
+      <div class="feature-grid" id="feature-grid">
+        <a href="ai.html" class="feat-card feat-pink hover-lift">
+          <div class="feat-icon"><i data-lucide="bot"></i></div>
+          <h4>AI Study Assistant</h4>
+          <p>Ask questions, get help, learn smarter.</p>
+          <span class="feat-arrow">→</span>
+        </a>
+        <a href="planner.html" class="feat-card feat-green hover-lift">
+          <div class="feat-icon"><i data-lucide="calendar-days"></i></div>
+          <h4>Study Planner</h4>
+          <p>Plan your study schedule and stay on track.</p>
+          <span class="feat-arrow">→</span>
+        </a>
+        <a href="tasks.html" class="feat-card feat-pink hover-lift">
+          <div class="feat-icon"><i data-lucide="check-square"></i></div>
+          <h4>My Tasks</h4>
+          <p>Manage your tasks and boost productivity.</p>
+          <span class="feat-arrow">→</span>
+        </a>
+        <a href="focus.html" class="feat-card feat-green hover-lift">
+          <div class="feat-icon"><i data-lucide="timer"></i></div>
+          <h4>Focus Mode</h4>
+          <p>Stay focused and avoid distractions.</p>
+          <span class="feat-arrow">→</span>
+        </a>
+        <a href="notes.html" class="feat-card feat-pink hover-lift">
+          <div class="feat-icon"><i data-lucide="notebook-pen"></i></div>
+          <h4>Notes</h4>
+          <p>Save your notes and ideas.</p>
+          <span class="feat-arrow">→</span>
+        </a>
+        <a href="resources.html" class="feat-card feat-green hover-lift">
+          <div class="feat-icon"><i data-lucide="book-open"></i></div>
+          <h4>Resources</h4>
+          <p>Access study materials and useful links.</p>
+          <span class="feat-arrow">→</span>
+        </a>
+      </div>
+
+      <div class="dash-bottom">
+        <div class="card hover-lift">
+          <div class="card-header">
+            <h3><i data-lucide="clipboard-list" class="inline-icon"></i> Upcoming Exams</h3>
+            <a href="exams.html" class="chip-link">View all ›</a>
+          </div>
+          <div id="upcoming-exams"></div>
+        </div>
+        <div class="card hover-lift">
+          <div class="card-header">
+            <h3><i data-lucide="refresh-cw" class="inline-icon"></i> Revision Needed</h3>
+            <a href="revision.html" class="chip-link">View all ›</a>
+          </div>
+          <div id="revision-needed"></div>
+        </div>
+        <div class="card card-encourage">
+          <p class="encourage-title">You can do it!</p>
+          <p class="encourage-sub">Keep going, one step at a time. 💚</p>
+        </div>
+      </div>
+
+      <!-- Existing functional sections (compact) -->
+      <div class="grid-2 mt-2">
+        <div class="card card-pink hover-lift">
+          <div class="card-header">
+            <h3><i data-lucide="crosshair" class="inline-icon"></i> Today's Focus</h3>
+          </div>
+          <div id="todays-focus"></div>
+        </div>
+        <div class="card card-green hover-lift">
+          <div class="card-header">
+            <h3><i data-lucide="pie-chart" class="inline-icon"></i> Semester Progress</h3>
+          </div>
+          <div id="semester-prog"></div>
+        </div>
+      </div>
+      <div class="grid-2 mt-2">
+        <div class="card card-pink hover-lift">
+          <div class="card-header">
+            <h3><i data-lucide="check-square" class="inline-icon"></i> Today's Tasks</h3>
+            <a href="tasks.html" class="text-sm">View all</a>
+          </div>
+          <div id="today-tasks"></div>
+        </div>
+        <div class="card card-green hover-lift">
+          <div class="card-header">
+            <h3><i data-lucide="calendar-days" class="inline-icon"></i> Today's Study Plan</h3>
+            <a href="planner.html" class="text-sm">View all</a>
+          </div>
+          <div id="today-plans"></div>
+        </div>
+      </div>
+      <div class="grid-2 mt-2">
+        <div class="card card-green hover-lift">
+          <div class="card-header">
+            <h3><i data-lucide="trophy" class="inline-icon"></i> Academic Goals</h3>
+            <a href="goals.html" class="text-sm">View all</a>
+          </div>
+          <div id="goals-list"></div>
+        </div>
+        <div class="card hover-lift">
+          <div class="card-header">
+            <h3><i data-lucide="sparkles" class="inline-icon"></i> StudyMate AI</h3>
+            <a href="ai.html" class="text-sm">Open</a>
+          </div>
+          <p class="text-sm text-muted mb-1">Ask questions and revise with AI.</p>
+          <a href="ai.html" class="btn btn-primary btn-sm"><i data-lucide="message-circle" class="inline-icon"></i> Chat with AI</a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/config.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/app.js"></script>
+  <script>
+    if (!requireAuth()) throw new Error('auth');
+    initShell('dashboard.html');
+
+    const QUOTES = [
+      { text: 'Small steps every day lead to big results.', author: 'StudyMate' },
+      { text: 'The secret of getting ahead is getting started.', author: 'Mark Twain' },
+      { text: 'Success is the sum of small efforts repeated day in and day out.', author: 'Robert Collier' },
+      { text: "Don't watch the clock; do what it does. Keep going.", author: 'Sam Levenson' },
+      { text: "It always seems impossible until it's done.", author: 'Nelson Mandela' },
+      { text: 'Focus on progress, not perfection.', author: 'StudyMate' },
+      { text: 'Your future is created by what you do today, not tomorrow.', author: 'Robert Kiyosaki' },
+      { text: 'A little progress each day adds up to big results.', author: 'Satya Nani' },
+      { text: 'The expert in anything was once a beginner.', author: 'Helen Hayes' },
+      { text: 'Keep going! Every small step brings you closer to your dreams.', author: 'StudyMate' },
+    ];
+
+    function showQuote(i) {
+      const q = QUOTES[i % QUOTES.length];
+      document.getElementById('quote-text').textContent = '“' + q.text + '”';
+      document.getElementById('quote-author').textContent = '— ' + q.author;
+    }
+
+    function requestExamNotifications(exams) {
+      if (!('Notification' in window)) return;
+      const show = () => {
+        exams.forEach((e) => {
+          const key = 'sm_exam_notif_' + (e._id || e.name) + '_' + String(e.examDate || '').slice(0, 10);
+          if (localStorage.getItem(key)) return;
+          try {
+            new Notification('StudyMate Exam Reminder', {
+              body: (e.name || 'Exam') + ' is ' + (e._days === 0 ? 'today' : 'tomorrow'),
+              tag: key,
+            });
+            localStorage.setItem(key, '1');
+          } catch (err) {}
+        });
+      };
+      if (Notification.permission === 'granted') show();
+      else if (Notification.permission !== 'denied') Notification.requestPermission().then((p) => { if (p === 'granted') show(); });
+    }
+
+    function renderWeeklyChart(activity) {
+      const el = document.getElementById('weekly-chart');
+      const list = activity || [];
+      const max = Math.max(60, ...list.map((d) => d.minutes || 0));
+      const total = list.reduce((s, d) => s + (d.minutes || 0), 0);
+      document.getElementById('week-total-label').textContent = total ? formatMinutes(total) : 'This Week';
+      if (!list.length) {
+        el.innerHTML = '<p class="text-sm text-muted">Complete a Focus session to see activity.</p>';
+        return;
+      }
+      el.innerHTML = '<div class="week-bars week-bars-pro">' + list.map((d) => {
+        const h = Math.max(8, Math.round(((d.minutes || 0) / max) * 100));
+        return '<div class="week-bar-col" title="' + formatMinutes(d.minutes || 0) + '">' +
+          '<div class="week-bar week-bar-green" style="height:' + h + '%"></div>' +
+          '<span class="week-bar-label">' + escapeHtml(d.label || '') + '</span></div>';
+      }).join('') + '</div>';
+    }
+
+    function renderStreak(d) {
+      const current = d.studyStreak?.current || 0;
+      const longest = d.studyStreak?.longest || 0;
+      const pct = Math.min(100, current * 10);
+      document.getElementById('streak-panel').innerHTML =
+        '<div class="gauge-wrap">' +
+        '<div class="gauge" style="--p:' + pct + '"><span class="gauge-val">' + current + '</span><span class="gauge-sub">days</span></div>' +
+        '<div class="streak-foot"><i data-lucide="trophy"></i> Longest Streak <strong>' + longest + ' days</strong></div></div>';
+    }
+
+    async function load() {
+      try {
+        const res = await API.get('/dashboard');
+        const d = res.data;
+        document.getElementById('dash-loading').style.display = 'none';
+        document.getElementById('dash-content').style.display = 'block';
+
+        const name = (API.getUser() || {}).name || 'Student';
+        document.getElementById('welcome').textContent = 'Hi ' + name + '! 👋';
+
+        const pct = d.semesterProgress || 0;
+        document.getElementById('stat-cards').innerHTML =
+          '<div class="stat-pro stat-maroon hover-lift">' +
+            '<div class="stat-pro-top"><i data-lucide="flame"></i><i data-lucide="calendar"></i></div>' +
+            '<div class="stat-pro-label">STUDY STREAK</div>' +
+            '<div class="stat-pro-value">' + (d.studyStreak?.current || 0) + ' days</div>' +
+            '<div class="stat-pro-hint">Keep going! Build your streak!</div></div>' +
+          '<div class="stat-pro stat-pink hover-lift">' +
+            '<div class="stat-pro-top"><i data-lucide="clock"></i><i data-lucide="book-open"></i></div>' +
+            '<div class="stat-pro-label">TODAY\'S STUDY</div>' +
+            '<div class="stat-pro-value">' + formatMinutes(d.studyTime?.today) + '</div>' +
+            '<div class="stat-pro-hint">Start studying to make it count!</div></div>' +
+          '<div class="stat-pro stat-mint hover-lift">' +
+            '<div class="stat-pro-top"><i data-lucide="calendar-days"></i><i data-lucide="trending-up"></i></div>' +
+            '<div class="stat-pro-label">THIS WEEK</div>' +
+            '<div class="stat-pro-value">' + formatMinutes(d.studyTime?.week) + '</div>' +
+            '<div class="stat-pro-hint">Plan your week for better results!</div></div>' +
+          '<div class="stat-pro stat-lilac hover-lift">' +
+            '<div class="stat-pro-top"><span class="mini-ring">' + pct + '%</span><i data-lucide="bar-chart-3"></i></div>' +
+            '<div class="stat-pro-label">OVERALL PROGRESS</div>' +
+            '<div class="stat-pro-value">' + (d.completedTopics || 0) + '/' + (d.totalTopics || 0) + '</div>' +
+            '<div class="stat-pro-hint">Keep going, you got this!</div></div>';
+
+        renderStreak(d);
+        renderWeeklyChart(d.weeklyActivity || []);
+
+        const exams = d.upcomingExams || [];
+        const tomorrowExams = [];
+        exams.forEach((e) => {
+          const days = e.daysRemaining != null ? e.daysRemaining : Math.ceil((new Date(e.examDate) - new Date()) / 86400000);
+          e._days = days;
+          if (days === 0 || days === 1) tomorrowExams.push(e);
+        });
+        const remEl = document.getElementById('exam-reminders');
+        if (tomorrowExams.length) {
+          remEl.innerHTML = '<div class="exam-reminder-banner"><div class="body"><strong>Exam reminder</strong><p>Today or tomorrow:</p>' +
+            tomorrowExams.map((e) => '<div class="exam-reminder-item tomorrow"><strong>' + escapeHtml(e.name) + '</strong> — ' + (e._days === 0 ? 'Today' : 'Tomorrow') + '</div>').join('') +
+            '</div></div>';
+          requestExamNotifications(tomorrowExams);
+        } else remEl.innerHTML = '';
+
+        document.getElementById('upcoming-exams').innerHTML = exams.length
+          ? exams.map((e) => {
+              const badge = e._days === 0 ? '<span class="badge badge-danger">Today</span>' : e._days === 1 ? '<span class="badge badge-pink">Tomorrow</span>' : '<span class="badge badge-muted">In ' + e._days + ' days</span>';
+              return '<div class="list-item"><div class="meta"><div class="title">' + escapeHtml(e.name) + ' ' + badge + '</div><div class="desc">' + escapeHtml(e.subject?.name || '') + ' · ' + formatDate(e.examDate) + '</div></div></div>';
+            }).join('')
+          : '<p class="text-sm text-muted">No upcoming exams. <a href="exams.html">Add an exam</a>.</p>';
+
+        const rev = d.revisionNeeded || [];
+        document.getElementById('revision-needed').innerHTML = rev.length
+          ? rev.map((r) => '<div class="list-item"><div class="meta"><div class="title">' + escapeHtml(r.topicName) + '</div><div class="desc">' + escapeHtml(r.subjectName || '') + '</div></div></div>').join('')
+          : '<p class="text-sm text-muted">No topics marked for revision right now.</p>';
+
+        const focus = d.todaysFocus;
+        document.getElementById('todays-focus').innerHTML = focus
+          ? '<div class="list-item"><div class="meta"><div class="title">' + escapeHtml(focus.title) + '</div><div class="desc">' + escapeHtml(focus.subject?.name || focus.type || '') + '</div></div></div>'
+          : '<p class="text-sm text-muted">No focus set. <a href="planner.html">Add a study plan</a>.</p>';
+
+        document.getElementById('semester-prog').innerHTML =
+          '<div class="flex-between text-sm mb-1"><span>' + (d.completedTopics || 0) + ' / ' + (d.totalTopics || 0) + ' topics</span><strong>' + pct + '%</strong></div>' +
+          '<div class="progress"><div class="progress-bar" style="width:' + pct + '%"></div></div>';
+
+        const tasks = d.todayTasks || [];
+        document.getElementById('today-tasks').innerHTML = tasks.length
+          ? tasks.slice(0, 5).map((t) => '<div class="list-item"><div class="meta"><div class="title">' + escapeHtml(t.title) + '</div><div class="desc">' + escapeHtml(t.subject?.name || '') + '</div></div></div>').join('')
+          : '<p class="text-sm text-muted">No tasks yet. <a href="tasks.html">Add a task</a>.</p>';
+
+        const plans = d.todayPlans || [];
+        document.getElementById('today-plans').innerHTML = plans.length
+          ? plans.map((p) => '<div class="list-item"><div class="meta"><div class="title">' + escapeHtml(p.topic || p.unit || 'Session') + '</div><div class="desc">' + (p.duration || 0) + ' min</div></div></div>').join('')
+          : '<p class="text-sm text-muted">No plans today. <a href="planner.html">Create a plan</a>.</p>';
+
+        const goals = d.goals || [];
+        document.getElementById('goals-list').innerHTML = goals.length
+          ? goals.map((g) => {
+              const gp = g.targetValue ? Math.min(100, Math.round(((g.currentValue || 0) / g.targetValue) * 100)) : (g.progress || 0);
+              return '<div class="list-item"><div class="meta"><div class="title">' + escapeHtml(g.title) + '</div><div class="progress mt-1"><div class="progress-bar" style="width:' + gp + '%"></div></div></div></div>';
+            }).join('')
+          : '<p class="text-sm text-muted">No active goals. <a href="goals.html">Set a goal</a>.</p>';
+
+        initIcons();
+      } catch (err) {
+        document.getElementById('dash-loading').innerHTML = '<p class="text-muted">' + escapeHtml(err.message || 'Failed to load') + '</p>';
+      }
+    }
+
+    let quoteIndex = Math.floor(Math.random() * QUOTES.length);
+    showQuote(quoteIndex);
+    document.getElementById('new-quote-btn')?.addEventListener('click', () => {
+      quoteIndex = (quoteIndex + 1 + Math.floor(Math.random() * (QUOTES.length - 1))) % QUOTES.length;
+      showQuote(quoteIndex);
+      initIcons();
+    });
+
+    load();
+  </script>
+</body>
+</html>

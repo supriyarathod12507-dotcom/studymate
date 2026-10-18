@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Profile — StudyMate</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div class="app-shell" id="app-shell"></div>
+  <div id="page-content" style="display:none">
+    <div class="card" style="max-width:480px">
+      <h3 class="mb-2">Profile & Settings</h3>
+      <form id="form">
+        <div class="form-group"><label>Name</label><input id="name" class="form-control" required></div>
+        <div class="form-group"><label>Email</label><input id="email" class="form-control" disabled></div>
+        <div class="form-group"><label>College</label><input id="college" class="form-control"></div>
+        <div class="form-group"><label>Branch</label><input id="branch" class="form-control"></div>
+        <div class="form-group"><label>Academic Year</label><input id="year" class="form-control"></div>
+        <div class="form-group"><label>Semester</label><input id="semester" class="form-control"></div>
+        <button type="submit" class="btn btn-primary btn-block">Save Profile</button>
+      </form>
+      <hr style="border:none;border-top:1px solid var(--border);margin:1.5rem 0">
+      <p class="text-sm text-muted mb-1">Study stats</p>
+      <p id="stats" class="text-sm"></p>
+    </div>
+  </div>
+  <script src="js/config.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/app.js"></script>
+  <script>
+    if (!requireAuth()) throw new Error('auth');
+    initShell('profile.html');
+    async function load() {
+      try {
+        const res = await API.get('/auth/me');
+        const u = res.user;
+        document.getElementById('name').value = u.name || '';
+        document.getElementById('email').value = u.email || '';
+        document.getElementById('college').value = u.college || '';
+        document.getElementById('branch').value = u.branch || '';
+        document.getElementById('year').value = u.academicYear || '';
+        document.getElementById('semester').value = u.semester || '';
+        document.getElementById('stats').textContent =
+          `Streak: ${u.studyStreak?.current || 0} days (longest ${u.studyStreak?.longest || 0}) · Total study: ${formatMinutes(u.totalStudyMinutes)}`;
+        API.updateUser(u);
+      } catch (err) { showToast(err.message, 'error'); }
+    }
+    document.getElementById('form').onsubmit = async (e) => {
+      e.preventDefault();
+      try {
+        const res = await API.put('/auth/profile', {
+          name: document.getElementById('name').value.trim(),
+          college: document.getElementById('college').value.trim(),
+          branch: document.getElementById('branch').value.trim(),
+          academicYear: document.getElementById('year').value.trim(),
+          semester: document.getElementById('semester').value.trim(),
+        });
+        API.updateUser(res.user);
+        showToast('Profile saved', 'success');
+      } catch (err) { showToast(err.message, 'error'); }
+    };
+    load();
+  </script>
+</body>
+</html>

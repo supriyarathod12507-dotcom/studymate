@@ -1,0 +1,19 @@
+STUDYMATE FINAL (Bloom colors + Exam reminder)
+==============================================
+
+EXAM REMINDER: YES
+- When exam is TODAY or TOMORROW, Dashboard shows a pink banner
+- Browser can show notification (allow permission)
+- Upcoming exams list shows Today / Tomorrow badges
+
+SETUP:
+1. Extract this zip to Desktop or Downloads
+2. Copy old .env into this folder:
+
+   copy "C:\Users\Supriya\Downloads\StudyMate\.env" "FULL_PATH_TO_THIS_FOLDER\.env"
+
+3. Open PowerShell in THIS folder:
+   npm install
+   npm start
+
+4. Open: http://localhost:5000

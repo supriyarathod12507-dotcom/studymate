@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Notes — StudyMate</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div class="app-shell" id="app-shell"></div>
+  <div id="page-content" style="display:none">
+    <div class="flex-between mb-2 flex-wrap gap-1">
+      <input type="search" id="search" class="form-control" placeholder="Search notes..." style="max-width:240px">
+      <button class="btn btn-primary" id="add-btn">+ New Note</button>
+    </div>
+    <div id="notes-list" class="grid-2"></div>
+  </div>
+  <div class="modal-backdrop" id="modal">
+    <div class="modal" style="max-width:600px">
+      <div class="modal-header"><h3 id="modal-title">New Note</h3><button class="modal-close" data-close>&times;</button></div>
+      <form id="form">
+        <input type="hidden" id="id">
+        <div class="form-group"><label>Title</label><input id="title" class="form-control" required></div>
+        <div class="grid-2">
+          <div class="form-group"><label>Subject</label><select id="subject" class="form-control"><option value="">None</option></select></div>
+          <div class="form-group"><label>Topic</label><input id="topic" class="form-control"></div>
+        </div>
+        <div class="form-group"><label>Content</label><textarea id="content" class="form-control" required rows="8"></textarea></div>
+        <button type="submit" class="btn btn-primary btn-block">Save</button>
+      </form>
+      <div id="ai-actions" style="display:none" class="mt-2">
+        <p class="text-sm text-muted mb-1">AI actions (original note is not overwritten)</p>
+        <div class="flex gap-1 flex-wrap">
+          <button type="button" class="btn btn-sm btn-secondary" data-ai="summarize">Summarize</button>
+          <button type="button" class="btn btn-sm btn-secondary" data-ai="simplify">Simplify</button>
+          <button type="button" class="btn btn-sm btn-secondary" data-ai="revision">Revision Points</button>
+        </div>
+        <div id="ai-result" class="card mt-2" style="display:none;white-space:pre-wrap;font-size:0.9rem"></div>
+      </div>
+    </div>
+  </div>
+  <script src="js/config.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/app.js"></script>
+  <script>
+    if (!requireAuth()) throw new Error('auth');
+    initShell('notes.html');
+    document.querySelector('[data-close]').onclick = () => document.getElementById('modal').classList.remove('show');
+
+    document.getElementById('add-btn').onclick = () => {
+      document.getElementById('id').value = '';
+      document.getElementById('form').reset();
+      document.getElementById('modal-title').textContent = 'New Note';
+      document.getElementById('ai-actions').style.display = 'none';
+      document.getElementById('ai-result').style.display = 'none';
+      document.getElementById('modal').classList.add('show');
+    };
+
+    document.getElementById('search').oninput = () => load();
+
+    document.getElementById('form').onsubmit = async (e) => {
+      e.preventDefault();
+      const id = document.getElementById('id').value;
+      const body = {
+        title: document.getElementById('title').value.trim(),
+        content: document.getElementById('content').value,
+        subject: document.getElementById('subject').value || undefined,
+        topic: document.getElementById('topic').value,
+      };
+      try {
+        if (id) await API.put(`/notes/${id}`, body);
+        else await API.post('/notes', body);
+        document.getElementById('modal').classList.remove('show');
+        showToast('Saved', 'success');
+        load();
+      } catch (err) { showToast(err.message, 'error'); }
+    };
+
+    document.querySelectorAll('[data-ai]').forEach((btn) => {
+      btn.onclick = async () => {
+        const id = document.getElementById('id').value;
+        if (!id) return showToast('Save the note first', 'error');
+        btn.disabled = true;
+        try {
+          const res = await API.post('/ai/note', { noteId: id, action: btn.dataset.ai });
+          const el = document.getElementById('ai-result');
+          el.style.display = 'block';
+          el.textContent = res.data.reply;
+        } catch (err) { showToast(err.message, 'error'); }
+        btn.disabled = false;
+      };
+    });
+
+    async function load() {
+      try {
+        const q = document.getElementById('search').value.trim();
+        const res = await API.get('/notes' + (q ? '?search=' + encodeURIComponent(q) : ''));
+        const notes = res.data || [];
+        const list = document.getElementById('notes-list');
+        if (!notes.length) {
+          list.innerHTML = '<div class="empty-state" style="grid-column:1/-1"><div class="empty-icon">📝</div><h3>No notes found</h3><p>Create your first note.</p></div>';
+          return;
+        }
+        list.innerHTML = notes.map((n) => `
+          <div class="card" style="cursor:pointer" data-open='${JSON.stringify({_id:n._id,title:n.title,content:n.content,subject:n.subject?._id||n.subject,topic:n.topic}).replace(/'/g,"&#39;")}'>
+            <h3 class="mb-1">${escapeHtml(n.title)}</h3>
+            <p class="text-sm text-muted mb-1">${n.subject?.name || ''} ${n.topic ? '· ' + escapeHtml(n.topic) : ''}</p>
+            <p class="text-sm" style="display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden">${escapeHtml(n.content?.slice(0, 150))}</p>
+            <p class="text-sm text-muted mt-1">${formatDate(n.updatedAt)}</p>
+            <button class="btn btn-sm btn-outline mt-1" data-del="${n._id}" onclick="event.stopPropagation()">Delete</button>
+          </div>`).join('');
+        list.querySelectorAll('[data-open]').forEach((card) => {
+          card.onclick = () => {
+            const n = JSON.parse(card.getAttribute('data-open'));
+            document.getElementById('id').value = n._id;
+            document.getElementById('title').value = n.title;
+            document.getElementById('content').value = n.content;
+            document.getElementById('subject').value = n.subject || '';
+            document.getElementById('topic').value = n.topic || '';
+            document.getElementById('modal-title').textContent = 'Edit Note';
+            document.getElementById('ai-actions').style.display = 'block';
+            document.getElementById('ai-result').style.display = 'none';
+            document.getElementById('modal').classList.add('show');
+          };
+        });
+        list.querySelectorAll('[data-del]').forEach((btn) => {
+          btn.onclick = async (e) => {
+            e.stopPropagation();
+            if (!confirm('Delete note?')) return;
+            try { await API.del(`/notes/${btn.dataset.del}`); showToast('Deleted', 'success'); load(); }
+            catch (err) { showToast(err.message, 'error'); }
+          };
+        });
+      } catch (err) { showToast(err.message, 'error'); }
+    }
+
+    API.get('/subjects').then((r) => {
+      (r.data || []).forEach((s) => {
+        const o = document.createElement('option');
+        o.value = s._id; o.textContent = s.name;
+        document.getElementById('subject').appendChild(o);
+      });
+    });
+    load();
+  </script>
+</body>
+</html>
